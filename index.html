@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Builder Onboarding - Gloas Upgrade</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --card-bg: #16213e;
+            --border-color: #2a3f5f;
+            --text-primary: #eaeaea;
+            --text-secondary: #a0a0a0;
+            --heading-color: #e0a458;
+            --link-color: #6db3f2;
+            --success-color: #4ecca3;
+            --warning-color: #ffc857;
+            --error-color: #ff6b6b;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        h2 {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            margin-bottom: 2rem;
+        }
+        h3 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--heading-color);
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        .status-item {
+            text-align: center;
+            padding: 1rem;
+            background-color: var(--bg-color);
+            border-radius: 6px;
+        }
+        .status-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+        .status-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+        .status-value.loading {
+            color: var(--text-secondary);
+        }
+        .status-value.safe {
+            color: var(--success-color);
+        }
+        .status-value.warning {
+            color: var(--warning-color);
+        }
+        .status-value.danger {
+            color: var(--error-color);
+        }
+        .deposit-window {
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 1.1rem;
+            margin-top: 1rem;
+        }
+        .deposit-window.safe {
+            background-color: rgba(78, 204, 163, 0.15);
+            border: 1px solid var(--success-color);
+        }
+        .deposit-window.warning {
+            background-color: rgba(255, 200, 87, 0.15);
+            border: 1px solid var(--warning-color);
+        }
+        .deposit-window.danger {
+            background-color: rgba(255, 107, 107, 0.15);
+            border: 1px solid var(--error-color);
+        }
+        .deposit-window.unknown {
+            background-color: rgba(139, 148, 158, 0.15);
+            border: 1px solid var(--text-secondary);
+        }
+        code {
+            background-color: rgba(110, 118, 129, 0.4);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        .steps {
+            counter-reset: step;
+        }
+        .step {
+            position: relative;
+            padding-left: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .step::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1.75rem;
+            height: 1.75rem;
+            background-color: var(--heading-color);
+            color: var(--bg-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .step h4 {
+            margin-bottom: 0.5rem;
+        }
+        .step p {
+            color: var(--text-secondary);
+        }
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .note {
+            background-color: rgba(109, 179, 242, 0.1);
+            border-left: 3px solid var(--link-color);
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        .error-msg {
+            color: var(--error-color);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        .queue-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: var(--bg-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .queue-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+        }
+        .queue-info-label {
+            color: var(--text-secondary);
+        }
+        .queue-info-value {
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+        .update-info {
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Builder Onboarding</h1>
+    <h2>Become a builder at the Gloas upgrade</h2>
+
+    <div class="card">
+        <h3>Network status</h3>
+        <div class="status-grid">
+            <div class="status-item">
+                <div class="status-label">Current Slot</div>
+                <div class="status-value loading" id="current-slot">--</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Upgrade Slot</div>
+                <div class="status-value" id="fork-slot">TBD</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Current Epoch</div>
+                <div class="status-value loading" id="current-epoch">--</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Upgrade Epoch</div>
+                <div class="status-value" id="fork-epoch">TBD</div>
+            </div>
+        </div>
+        <div class="deposit-window unknown" id="deposit-status">
+            Loading...
+        </div>
+        <div class="queue-info" id="queue-info" style="display: none;">
+            <div class="queue-info-row">
+                <span class="queue-info-label">Pending deposit queue:</span>
+                <span class="queue-info-value" id="queue-depth">--</span>
+            </div>
+            <div class="queue-info-row">
+                <span class="queue-info-label">Churn limit per epoch:</span>
+                <span class="queue-info-value" id="churn-limit">--</span>
+            </div>
+            <div class="queue-info-row">
+                <span class="queue-info-label">Epochs to clear queue:</span>
+                <span class="queue-info-value" id="epochs-to-clear">--</span>
+            </div>
+        </div>
+        <div class="update-info" id="update-info" style="display: none;">
+            <span>Last updated: <span id="last-updated">--</span></span>
+            <span>Next update in: <span id="next-update">--</span>s</span>
+        </div>
+        <div id="error-container"></div>
+    </div>
+
+    <div class="card">
+        <h3>When to submit a builder deposit</h3>
+        <p>To be onboarded as a builder at the <strong>first slot</strong> of the Gloas upgrade,
+        the deposit must be in the <strong>pending deposits queue</strong> when the upgrade occurs.
+        This page calculates the earliest safe deposit epoch based on the current pending deposit
+        queue depth and the network's churn limit.
+    </p>
+
+        <div class="note" style="border-left-color: var(--error-color); background-color: rgba(248, 81, 73, 0.1);">
+            <strong>Warning:</strong> Depositing too early will result in the deposit being
+            processed before the upgrade occurs. Since builders do not exist yet,
+            a <code>0x03</code> deposit will be treated as a validator deposit
+            and a <strong>validator will be created instead of a builder</strong>.
+            This cannot be undone.
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>How to onboard as a builder</h3>
+        <div class="steps">
+            <div class="step">
+                <h4>Generate builder keys and deposit data</h4>
+                <p>Use the <a href="https://github.com/ethstaker/ethstaker-deposit-cli" target="_blank">ethstaker-deposit-cli</a>
+                to generate a new BLS keypair and deposit data. This must be separate from any existing validator keys.
+                Withdrawal credentials must use the <code>0x03</code> prefix.</p>
+            </div>
+            <div class="step">
+                <h4>Wait for the safe deposit window</h4>
+                <p>Monitor this page and wait until it is safe to deposit.</p>
+            </div>
+            <div class="step">
+                <h4>Submit deposit</h4>
+                <p>Submit the deposit to the deposit contract. The deposit will be added to the pending
+                    queue and processed during the Gloas upgrade.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const BEACON_API = 'http://192.168.4.37:5052';
+        const FORK_EPOCH_OVERRIDE = null;
+
+        // Consensus layer constants (fetched from API)
+        let FORK_EPOCH;
+        let SLOTS_PER_EPOCH;
+        let MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA;
+        let MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT;
+        let CHURN_LIMIT_QUOTIENT;
+
+        async function fetchSpec() {
+            const response = await fetch(`${BEACON_API}/eth/v1/config/spec`);
+            if (!response.ok) throw new Error(`API returned ${response.status}`);
+            const data = await response.json();
+            const spec = data.data;
+
+            SLOTS_PER_EPOCH = parseInt(spec.SLOTS_PER_EPOCH);
+            MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = BigInt(spec.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA);
+            MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = BigInt(spec.MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT);
+            CHURN_LIMIT_QUOTIENT = BigInt(spec.CHURN_LIMIT_QUOTIENT);
+
+            // Use override if set, otherwise fetch from spec
+            if (FORK_EPOCH_OVERRIDE !== null) {
+                FORK_EPOCH = FORK_EPOCH_OVERRIDE;
+            } else if (spec.GLOAS_FORK_EPOCH && spec.FAR_FUTURE_EPOCH) {
+                const farFutureEpoch = BigInt(spec.FAR_FUTURE_EPOCH);
+                const gloasForkEpoch = BigInt(spec.GLOAS_FORK_EPOCH);
+                FORK_EPOCH = gloasForkEpoch >= farFutureEpoch ? null : Number(gloasForkEpoch);
+            } else {
+                FORK_EPOCH = null;
+            }
+        }
+
+        async function fetchNetworkStatus() {
+            const response = await fetch(`${BEACON_API}/eth/v1/beacon/headers/head`);
+            if (!response.ok) throw new Error(`API returned ${response.status}`);
+            const data = await response.json();
+            const slot = parseInt(data.data.header.message.slot);
+            return {
+                current_slot: slot,
+                current_epoch: Math.floor(slot / SLOTS_PER_EPOCH)
+            };
+        }
+
+        // Cache for total active balance (only changes once per epoch)
+        let cachedTotalActiveBalance = null;
+        let cachedEpoch = null;
+
+        async function fetchTotalActiveBalance(currentEpoch) {
+            // Return cached value if same epoch
+            if (cachedEpoch === currentEpoch && cachedTotalActiveBalance !== null) {
+                return cachedTotalActiveBalance;
+            }
+
+            const validatorsResponse = await fetch(`${BEACON_API}/eth/v1/beacon/states/head/validators`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ statuses: ['active_ongoing'] })
+            });
+            if (!validatorsResponse.ok) throw new Error(`API returned ${validatorsResponse.status}`);
+            const validatorsData = await validatorsResponse.json();
+            cachedTotalActiveBalance = validatorsData.data.reduce(
+                (sum, v) => sum + BigInt(v.validator.effective_balance), 0n
+            );
+            cachedEpoch = currentEpoch;
+            return cachedTotalActiveBalance;
+        }
+
+        async function fetchQueueStatus(currentEpoch) {
+            // Fetch total active balance (cached per epoch)
+            const totalActiveBalance = await fetchTotalActiveBalance(currentEpoch);
+
+            // Fetch pending deposits queue
+            const depositsResponse = await fetch(`${BEACON_API}/eth/v1/beacon/states/head/pending_deposits`);
+            let pendingDepositsBalance = 0n;
+            if (depositsResponse.ok) {
+                const depositsData = await depositsResponse.json();
+                pendingDepositsBalance = depositsData.data.reduce(
+                    (sum, d) => sum + BigInt(d.amount), 0n
+                );
+            }
+
+            return {
+                total_active_balance: totalActiveBalance.toString(),
+                beaconchain_entering_balance: pendingDepositsBalance.toString()
+            };
+        }
+
+        function calculateChurnLimit(totalActiveBalance) {
+            let churn = BigInt(totalActiveBalance) / CHURN_LIMIT_QUOTIENT;
+            let isExact = false;
+            if (churn < MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA) {
+                churn = MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA;
+                isExact = true;
+            }
+            if (churn > MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT) {
+                churn = MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT;
+                isExact = true;
+            }
+            return { churn, isExact };
+        }
+
+        function calculateEarliestSafeEpoch(currentEpoch, queueDepthGwei, churnLimitGwei) {
+            if (FORK_EPOCH === null) return null;
+
+            // Calculate epochs needed to clear the current queue
+            const epochsToClear = Number(queueDepthGwei / churnLimitGwei) + 1;
+
+            // Earliest safe epoch is when depositing would leave deposit in queue until fork
+            // Add 1 epoch buffer for safety
+            const earliestSafe = FORK_EPOCH - epochsToClear - 1;
+
+            return Math.max(earliestSafe, currentEpoch);
+        }
+
+        function formatETH(gwei) {
+            const eth = Number(gwei) / 1e9;
+            if (eth >= 1000) {
+                return `${(eth / 1000).toFixed(1)}k ETH`;
+            }
+            return `${eth.toFixed(0)} ETH`;
+        }
+
+        function formatEpochsAsTime(epochs) {
+            const secondsPerEpoch = SLOTS_PER_EPOCH * 12;
+            let totalSeconds = epochs * secondsPerEpoch;
+
+            const days = Math.floor(totalSeconds / 86400);
+            totalSeconds %= 86400;
+            const hours = Math.floor(totalSeconds / 3600);
+            totalSeconds %= 3600;
+            const minutes = Math.floor(totalSeconds / 60);
+
+            const parts = [];
+            if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+            if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+            if (minutes > 0 && days === 0) parts.push(`${minutes} min`);
+
+            return parts.length > 0 ? parts.join(', ') : '< 1 min';
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        function updateUI(networkStatus, queueStatus) {
+            const currentSlot = networkStatus.current_slot;
+            const currentEpoch = networkStatus.current_epoch;
+
+            // Update current slot and epoch
+            document.getElementById('current-slot').textContent = currentSlot;
+            document.getElementById('current-slot').classList.remove('loading');
+            document.getElementById('current-epoch').textContent = currentEpoch;
+            document.getElementById('current-epoch').classList.remove('loading');
+
+            // Update fork slot and epoch
+            if (FORK_EPOCH !== null) {
+                document.getElementById('fork-epoch').textContent = FORK_EPOCH;
+                document.getElementById('fork-slot').textContent = FORK_EPOCH * SLOTS_PER_EPOCH;
+            }
+
+            // Calculate churn and earliest safe epoch
+            const queueDepthGwei = BigInt(queueStatus.beaconchain_entering_balance || 0);
+            const { churn: churnLimitGwei, isExact: isChurnExact } = calculateChurnLimit(queueStatus.total_active_balance);
+            const epochsToClear = Number(queueDepthGwei / churnLimitGwei) + 1;
+            const earliestSafeEpoch = calculateEarliestSafeEpoch(currentEpoch, queueDepthGwei, churnLimitGwei);
+
+            // Show queue info
+            document.getElementById('queue-info').style.display = 'block';
+            document.getElementById('queue-depth').textContent = formatETH(queueDepthGwei);
+            const churnPrefix = isChurnExact ? '' : '~';
+            document.getElementById('churn-limit').textContent = `${churnPrefix}${formatETH(churnLimitGwei)}/epoch`;
+            document.getElementById('epochs-to-clear').textContent = `~${epochsToClear} epochs (~${formatEpochsAsTime(epochsToClear)})`;
+
+            const statusEl = document.getElementById('deposit-status');
+
+            if (FORK_EPOCH === null) {
+                statusEl.className = 'deposit-window warning';
+                statusEl.innerHTML = `<strong>Do not deposit yet!</strong><br>
+                    Upgrade epoch not yet scheduled`;
+                return;
+            }
+
+            if (currentEpoch >= FORK_EPOCH) {
+                statusEl.className = 'deposit-window danger';
+                statusEl.textContent = 'Upgrade has already occurred';
+            } else if (currentEpoch >= earliestSafeEpoch) {
+                statusEl.className = 'deposit-window safe';
+                statusEl.innerHTML = `<strong>Safe to deposit now!</strong><br>
+                    Deposits made now will remain in the queue until the upgrade.`;
+            } else {
+                const epochsToWait = earliestSafeEpoch - currentEpoch;
+                statusEl.className = 'deposit-window warning';
+                statusEl.innerHTML = `<strong>Do not deposit yet!</strong><br>
+                    Estimated ~${epochsToWait} epochs until safe to deposit (epoch ~${earliestSafeEpoch})<br>
+                    <small>This estimate is based on current queue depth and is not 100% accurate</small>`;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('error-container').innerHTML =
+                `<div class="error-msg">${message}</div>`;
+            document.getElementById('deposit-status').className = 'deposit-window unknown';
+            document.getElementById('deposit-status').textContent = 'Failed to load data';
+        }
+
+        const SLOT_TIME = 12; // seconds
+        let countdown = SLOT_TIME;
+        let eventSource = null;
+
+        function updateLastUpdated() {
+            document.getElementById('last-updated').textContent = formatTime(new Date());
+            document.getElementById('update-info').style.display = 'flex';
+            countdown = SLOT_TIME;
+        }
+
+        function updateCountdown() {
+            countdown--;
+            if (countdown < 0) countdown = 0;
+            document.getElementById('next-update').textContent = countdown;
+        }
+
+        async function fetchAndUpdate() {
+            try {
+                const networkStatus = await fetchNetworkStatus();
+                const queueStatus = await fetchQueueStatus(networkStatus.current_epoch);
+                updateUI(networkStatus, queueStatus);
+                updateLastUpdated();
+            } catch (error) {
+                console.error('Failed to fetch:', error);
+                throw error;
+            }
+        }
+
+        function setupEventSource() {
+            eventSource = new EventSource(`${BEACON_API}/eth/v1/events?topics=head`);
+
+            eventSource.addEventListener('head', async (event) => {
+                try {
+                    await fetchAndUpdate();
+                } catch (error) {
+                    console.error('Failed to update on head event:', error);
+                }
+            });
+
+            eventSource.onerror = (error) => {
+                console.error('EventSource error:', error);
+                eventSource.close();
+                // Reconnect after 5 seconds
+                setTimeout(setupEventSource, 5000);
+            };
+        }
+
+        async function init() {
+            try {
+                // Fetch consensus layer constants first
+                await fetchSpec();
+
+                await fetchAndUpdate();
+
+                // Subscribe to head events via SSE
+                setupEventSource();
+
+                // Update countdown every second
+                setInterval(updateCountdown, 1000);
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                showError('Failed to load network status. Please refresh the page.');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
