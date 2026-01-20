@@ -205,6 +205,26 @@
             font-size: 0.875rem;
             text-align: center;
         }
+        @media (max-width: 600px) {
+            body {
+                padding: 1rem;
+            }
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+            .status-value {
+                font-size: 1.25rem;
+            }
+            .queue-info-row {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+            .update-info {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -293,9 +313,10 @@
     </div>
 
     <script>
-        // Configuration
         const BEACON_API = 'http://192.168.4.37:5052';
         const FORK_EPOCH_OVERRIDE = null;
+        // Set to skip validators fetch
+        const TOTAL_ACTIVE_BALANCE_OVERRIDE = 36000000000000000000n;
 
         // Consensus layer constants (fetched from API)
         let FORK_EPOCH;
@@ -343,6 +364,11 @@
         let cachedEpoch = null;
 
         async function fetchTotalActiveBalance(currentEpoch) {
+            // Use override if set (avoids heavy validators fetch)
+            if (TOTAL_ACTIVE_BALANCE_OVERRIDE !== null) {
+                return TOTAL_ACTIVE_BALANCE_OVERRIDE;
+            }
+
             // Return cached value if same epoch
             if (cachedEpoch === currentEpoch && cachedTotalActiveBalance !== null) {
                 return cachedTotalActiveBalance;
