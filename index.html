@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Builder Onboarding - Gloas Upgrade</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 417'%3E%3Cpath fill='%23343434' d='m127.961 0-2.795 9.5v275.668l2.795 2.79 127.962-75.638z'/%3E%3Cpath fill='%238C8C8C' d='M127.962 0 0 212.32l127.962 75.639V154.158z'/%3E%3Cpath fill='%233C3C3B' d='m127.961 312.187-1.575 1.92v98.199l1.575 4.601L256 236.587z'/%3E%3Cpath fill='%238C8C8C' d='M127.962 416.905v-104.72L0 236.585z'/%3E%3Cpath fill='%23141414' d='m127.961 287.958 127.96-75.637-127.96-58.162z'/%3E%3Cpath fill='%23393939' d='m.001 212.321 127.96 75.637V154.159z'/%3E%3C/svg%3E">
     <style>
         :root {
             --bg-color: #1a1a2e;
@@ -124,6 +125,9 @@
             padding-left: 2.5rem;
             margin-bottom: 1.5rem;
         }
+        .step:last-child {
+            margin-bottom: 0;
+        }
         .step::before {
             counter-increment: step;
             content: counter(step);
@@ -205,7 +209,6 @@
 </head>
 <body>
     <h1>Builder Onboarding</h1>
-    <h2>Become a builder at the Gloas upgrade</h2>
 
     <div class="card">
         <h3>Network status</h3>
