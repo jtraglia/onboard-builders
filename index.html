@@ -255,16 +255,24 @@
         </div>
         <div class="queue-info" id="queue-info" style="display: none;">
             <div class="queue-info-row">
-                <span class="queue-info-label">Pending deposit queue:</span>
-                <span class="queue-info-value" id="queue-depth">--</span>
-            </div>
-            <div class="queue-info-row">
                 <span class="queue-info-label">Churn limit per epoch:</span>
                 <span class="queue-info-value" id="churn-limit">--</span>
             </div>
             <div class="queue-info-row">
-                <span class="queue-info-label">Epochs to clear queue:</span>
-                <span class="queue-info-value" id="epochs-to-clear">--</span>
+                <span class="queue-info-label">Min queue for guarantee:</span>
+                <span class="queue-info-value" id="min-queue-for-guarantee">--</span>
+            </div>
+            <div class="queue-info-row">
+                <span class="queue-info-label">Pending deposit queue:</span>
+                <span class="queue-info-value" id="queue-depth">--</span>
+            </div>
+            <div class="queue-info-row" id="queue-deficit-row" style="display: none;">
+                <span class="queue-info-label">Difference:</span>
+                <span class="queue-info-value" id="queue-deficit">--</span>
+            </div>
+            <div class="note" id="queue-explainer" style="display: none; margin-top: 0.75rem;">
+                <strong>Note:</strong> When the pending deposit queue equals or exceeds the min
+                queue for guarantee, a new deposit is guaranteed to be in the queue at the fork.
             </div>
         </div>
         <div class="update-info" id="update-info" style="display: none;">
@@ -278,8 +286,8 @@
         <h3>When to submit a builder deposit</h3>
         <p>To be onboarded as a builder at the <strong>first slot</strong> of the Gloas upgrade,
         the deposit must be in the <strong>pending deposits queue</strong> when the upgrade occurs.
-        This page calculates the earliest safe deposit epoch based on the current pending deposit
-        queue depth and the network's churn limit.
+        It is safe to deposit when the queue depth exceeds the minimum required for a guarantee
+        (epochs until fork &times; 256 ETH/epoch).
     </p>
 
         <div class="note" style="border-left-color: var(--error-color); background-color: rgba(248, 81, 73, 0.1);">
@@ -314,16 +322,17 @@
 
     <script>
         const BEACON_API = 'http://192.168.4.37:5052';
-        const FORK_EPOCH_OVERRIDE = null;
+        const FORK_EPOCH_OVERRIDE = 432215;
         // Set to skip validators fetch
         const TOTAL_ACTIVE_BALANCE_OVERRIDE = 36000000000000000000n;
+
+        // Minimum total active balance for max churn (256 ETH * 65536 = 16,777,216 ETH in gwei)
+        const MIN_BALANCE_FOR_MAX_CHURN = 16777216000000000n;
 
         // Consensus layer constants (fetched from API)
         let FORK_EPOCH;
         let SLOTS_PER_EPOCH;
-        let MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA;
         let MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT;
-        let CHURN_LIMIT_QUOTIENT;
 
         async function fetchSpec() {
             const response = await fetch(`${BEACON_API}/eth/v1/config/spec`);
@@ -332,9 +341,7 @@
             const spec = data.data;
 
             SLOTS_PER_EPOCH = parseInt(spec.SLOTS_PER_EPOCH);
-            MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = BigInt(spec.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA);
             MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = BigInt(spec.MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT);
-            CHURN_LIMIT_QUOTIENT = BigInt(spec.CHURN_LIMIT_QUOTIENT);
 
             // Use override if set, otherwise fetch from spec
             if (FORK_EPOCH_OVERRIDE !== null) {
@@ -366,6 +373,9 @@
         async function fetchTotalActiveBalance(currentEpoch) {
             // Use override if set (avoids heavy validators fetch)
             if (TOTAL_ACTIVE_BALANCE_OVERRIDE !== null) {
+                if (TOTAL_ACTIVE_BALANCE_OVERRIDE < MIN_BALANCE_FOR_MAX_CHURN) {
+                    throw new Error(`Override balance ${TOTAL_ACTIVE_BALANCE_OVERRIDE} is below minimum ${MIN_BALANCE_FOR_MAX_CHURN} for max churn`);
+                }
                 return TOTAL_ACTIVE_BALANCE_OVERRIDE;
             }
 
@@ -385,12 +395,18 @@
                 (sum, v) => sum + BigInt(v.validator.effective_balance), 0n
             );
             cachedEpoch = currentEpoch;
+
+            // Assert total active balance is high enough for max churn limit
+            if (cachedTotalActiveBalance < MIN_BALANCE_FOR_MAX_CHURN) {
+                throw new Error(`Total active balance ${cachedTotalActiveBalance} is below minimum ${MIN_BALANCE_FOR_MAX_CHURN} for max churn`);
+            }
+
             return cachedTotalActiveBalance;
         }
 
         async function fetchQueueStatus(currentEpoch) {
-            // Fetch total active balance (cached per epoch)
-            const totalActiveBalance = await fetchTotalActiveBalance(currentEpoch);
+            // Verify total active balance is high enough for max churn assumption
+            await fetchTotalActiveBalance(currentEpoch);
 
             // Fetch pending deposits queue
             const depositsResponse = await fetch(`${BEACON_API}/eth/v1/beacon/states/head/pending_deposits`);
@@ -402,63 +418,21 @@
                 );
             }
 
-            return {
-                total_active_balance: totalActiveBalance.toString(),
-                beaconchain_entering_balance: pendingDepositsBalance.toString()
-            };
+            return { pendingDepositsBalance };
         }
 
-        function calculateChurnLimit(totalActiveBalance) {
-            let churn = BigInt(totalActiveBalance) / CHURN_LIMIT_QUOTIENT;
-            let isExact = false;
-            if (churn < MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA) {
-                churn = MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA;
-                isExact = true;
-            }
-            if (churn > MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT) {
-                churn = MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT;
-                isExact = true;
-            }
-            return { churn, isExact };
+        function isGuaranteedSafe(currentEpoch, queueDepthGwei, churnLimitGwei) {
+            if (FORK_EPOCH === null) return false;
+
+            // Guaranteed safe if queue depth >= epochs_until_fork * churn_limit
+            // This ensures deposit won't be processed even if no new deposits arrive
+            const epochsUntilFork = BigInt(FORK_EPOCH - currentEpoch);
+            const minQueueForGuarantee = epochsUntilFork * churnLimitGwei;
+            return queueDepthGwei >= minQueueForGuarantee;
         }
 
-        function calculateEarliestSafeEpoch(currentEpoch, queueDepthGwei, churnLimitGwei) {
-            if (FORK_EPOCH === null) return null;
-
-            // Calculate epochs needed to clear the current queue
-            const epochsToClear = Number(queueDepthGwei / churnLimitGwei) + 1;
-
-            // Earliest safe epoch is when depositing would leave deposit in queue until fork
-            // Add 1 epoch buffer for safety
-            const earliestSafe = FORK_EPOCH - epochsToClear - 1;
-
-            return Math.max(earliestSafe, currentEpoch);
-        }
-
-        function formatETH(gwei) {
-            const eth = Number(gwei) / 1e9;
-            if (eth >= 1000) {
-                return `${(eth / 1000).toFixed(1)}k ETH`;
-            }
-            return `${eth.toFixed(0)} ETH`;
-        }
-
-        function formatEpochsAsTime(epochs) {
-            const secondsPerEpoch = SLOTS_PER_EPOCH * 12;
-            let totalSeconds = epochs * secondsPerEpoch;
-
-            const days = Math.floor(totalSeconds / 86400);
-            totalSeconds %= 86400;
-            const hours = Math.floor(totalSeconds / 3600);
-            totalSeconds %= 3600;
-            const minutes = Math.floor(totalSeconds / 60);
-
-            const parts = [];
-            if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
-            if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
-            if (minutes > 0 && days === 0) parts.push(`${minutes} min`);
-
-            return parts.length > 0 ? parts.join(', ') : '< 1 min';
+        function formatGwei(gwei) {
+            return BigInt(gwei).toLocaleString() + ' Gwei';
         }
 
         function formatTime(date) {
@@ -481,18 +455,21 @@
                 document.getElementById('fork-slot').textContent = FORK_EPOCH * SLOTS_PER_EPOCH;
             }
 
-            // Calculate churn and earliest safe epoch
-            const queueDepthGwei = BigInt(queueStatus.beaconchain_entering_balance || 0);
-            const { churn: churnLimitGwei, isExact: isChurnExact } = calculateChurnLimit(queueStatus.total_active_balance);
-            const epochsToClear = Number(queueDepthGwei / churnLimitGwei) + 1;
-            const earliestSafeEpoch = calculateEarliestSafeEpoch(currentEpoch, queueDepthGwei, churnLimitGwei);
+            // Use hardcoded max churn limit (assertion verified total active balance is sufficient)
+            const queueDepthGwei = queueStatus.pendingDepositsBalance;
+            const churnLimitGwei = MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT;
+            const epochsUntilFork = FORK_EPOCH !== null ? FORK_EPOCH - currentEpoch : null;
+            const minQueueForGuarantee = epochsUntilFork !== null ? BigInt(epochsUntilFork) * churnLimitGwei : null;
 
             // Show queue info
             document.getElementById('queue-info').style.display = 'block';
-            document.getElementById('queue-depth').textContent = formatETH(queueDepthGwei);
-            const churnPrefix = isChurnExact ? '' : '~';
-            document.getElementById('churn-limit').textContent = `${churnPrefix}${formatETH(churnLimitGwei)}/epoch`;
-            document.getElementById('epochs-to-clear').textContent = `~${epochsToClear} epochs (~${formatEpochsAsTime(epochsToClear)})`;
+            document.getElementById('queue-depth').textContent = formatGwei(queueDepthGwei);
+            document.getElementById('churn-limit').textContent = `${formatGwei(churnLimitGwei)}`;
+            if (minQueueForGuarantee !== null) {
+                document.getElementById('min-queue-for-guarantee').textContent = formatGwei(minQueueForGuarantee);
+            } else {
+                document.getElementById('min-queue-for-guarantee').textContent = '--';
+            }
 
             const statusEl = document.getElementById('deposit-status');
 
@@ -504,18 +481,24 @@
             }
 
             if (currentEpoch >= FORK_EPOCH) {
-                statusEl.className = 'deposit-window danger';
-                statusEl.textContent = 'Upgrade has already occurred';
-            } else if (currentEpoch >= earliestSafeEpoch) {
+                statusEl.className = 'deposit-window safe';
+                statusEl.innerHTML = `<strong>Safe to deposit!</strong><br>
+                    The upgrade has occurred. Builder deposits are now processed normally.`;
+                document.getElementById('queue-info').style.display = 'none';
+            } else if (isGuaranteedSafe(currentEpoch, queueDepthGwei, churnLimitGwei)) {
                 statusEl.className = 'deposit-window safe';
                 statusEl.innerHTML = `<strong>Safe to deposit now!</strong><br>
-                    Deposits made now will remain in the queue until the upgrade.`;
+                    Deposits are guaranteed to remain in the queue until the upgrade.`;
+                document.getElementById('queue-deficit-row').style.display = 'none';
+                document.getElementById('queue-explainer').style.display = 'block';
             } else {
-                const epochsToWait = earliestSafeEpoch - currentEpoch;
+                const queueDeficit = minQueueForGuarantee - queueDepthGwei;
                 statusEl.className = 'deposit-window warning';
                 statusEl.innerHTML = `<strong>Do not deposit yet!</strong><br>
-                    Estimated ~${epochsToWait} epochs until safe to deposit (epoch ~${earliestSafeEpoch})<br>
-                    <small>This estimate is based on current queue depth and is not 100% accurate</small>`;
+                    Queue needs more to guarantee onboarding at the fork`;
+                document.getElementById('queue-deficit-row').style.display = 'flex';
+                document.getElementById('queue-deficit').textContent = formatGwei(queueDeficit);
+                document.getElementById('queue-explainer').style.display = 'block';
             }
         }
 
