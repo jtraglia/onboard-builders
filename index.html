@@ -495,7 +495,7 @@
                 const queueDeficit = minQueueForGuarantee - queueDepthGwei;
                 statusEl.className = 'deposit-window warning';
                 statusEl.innerHTML = `<strong>Do not deposit yet!</strong><br>
-                    Queue needs more to guarantee onboarding at the fork`;
+                    Queue is not large enough to guarantee onboarding at the fork.`;
                 document.getElementById('queue-deficit-row').style.display = 'flex';
                 document.getElementById('queue-deficit').textContent = formatGwei(queueDeficit);
                 document.getElementById('queue-explainer').style.display = 'block';
